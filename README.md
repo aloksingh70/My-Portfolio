@@ -10,7 +10,7 @@
 
 **Computational Sciences | Machine Learning | Multi-Agent AI Systems | Data Analytics**
 
-[Live Portfolio](https://github.com/aloksingh70/My-Portfolio) • [ORCA Live Demo](https://orca-advisory.vercel.app) • [LinkedIn](https://www.linkedin.com/in/alok-kumar-singh-708525345) • [GitHub](https://github.com/aloksingh70)
+[Live Portfolio](https://alok-portfolio-black.vercel.app) • [ORCA Live Demo](https://orca-advisory.vercel.app) • [LinkedIn](https://www.linkedin.com/in/alok-kumar-singh-708525345) • [GitHub](https://github.com/aloksingh70)
 
 </div>
 
