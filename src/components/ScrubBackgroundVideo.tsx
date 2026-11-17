@@ -1,10 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { calculateDirectionalFollow, calculateScrubTime, SCRUB_SENSITIVITY } from '../utils/portfolioLogic';
 
-const LOCAL_VIDEO_URL = '/video.mp4';
-const REMOTE_VIDEO_URL =
-  'https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260826_041744_63efcd78-bf7d-4039-99e2-2461e8a61903.mp4';
-
 export function ScrubBackgroundVideo() {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -25,7 +21,7 @@ export function ScrubBackgroundVideo() {
       typeof window.matchMedia === 'function' &&
       window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-    // Set essential video properties directly on DOM element for mobile browser compatibility
+    // Mobile WebKit / Chromium attribute enforcement
     video.muted = true;
     video.defaultMuted = true;
     video.playsInline = true;
@@ -33,18 +29,18 @@ export function ScrubBackgroundVideo() {
     video.setAttribute('playsinline', '');
     video.setAttribute('webkit-playsinline', '');
 
-    // Initiate immediate playback
+    // Autoplay start
     const startPlayback = () => {
       const playPromise = video.play();
       if (playPromise !== undefined) {
         playPromise.catch(() => {
-          // Autoplay policy may pause until user touch; canvas provides animated fallback
+          // Handled: gesture unlock listener below handles strict battery-saver policies
         });
       }
     };
     startPlayback();
 
-    // Unlock playback on first mobile touch or pointer tap
+    // Unlock on first user touch gesture on mobile
     const unlockPlaybackOnGesture = () => {
       if (video.paused) {
         startPlayback();
@@ -55,7 +51,7 @@ export function ScrubBackgroundVideo() {
     window.addEventListener('touchstart', unlockPlaybackOnGesture, { passive: true });
     window.addEventListener('pointerdown', unlockPlaybackOnGesture, { passive: true });
 
-    // Handle loop restart cleanly
+    // Loop fallback
     const handleEnded = () => {
       video.currentTime = 0;
       startPlayback();
@@ -69,7 +65,7 @@ export function ScrubBackgroundVideo() {
     };
     video.addEventListener('loadedmetadata', handleLoadedMetadata);
 
-    // Dynamic glowing canvas backdrop (renders smoothly whenever video is buffering or offline)
+    // Canvas fallback rendering (glowing cosmic orbits)
     const drawCanvasBackdrop = (timestamp: number) => {
       const canvas = canvasRef.current;
       if (!canvas) return;
@@ -90,7 +86,6 @@ export function ScrubBackgroundVideo() {
       const nx = currentPointerRef.current.x + ambientX;
       const ny = currentPointerRef.current.y + ambientY;
 
-      // Dark futuristic atmosphere
       ctx.fillStyle = '#05070a';
       ctx.fillRect(0, 0, width, height);
 
@@ -99,14 +94,14 @@ export function ScrubBackgroundVideo() {
       const radius = Math.max(width, height) * 0.6;
 
       const grad = ctx.createRadialGradient(cx, cy, radius * 0.03, cx, cy, radius);
-      grad.addColorStop(0, 'rgba(180, 215, 255, 0.35)');
-      grad.addColorStop(0.28, 'rgba(95, 140, 220, 0.20)');
-      grad.addColorStop(0.62, 'rgba(30, 50, 95, 0.10)');
+      grad.addColorStop(0, 'rgba(180, 215, 255, 0.40)');
+      grad.addColorStop(0.28, 'rgba(95, 140, 220, 0.22)');
+      grad.addColorStop(0.62, 'rgba(30, 50, 95, 0.12)');
       grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
       ctx.fillStyle = grad;
       ctx.fillRect(0, 0, width, height);
 
-      ctx.strokeStyle = 'rgba(210, 235, 255, 0.18)';
+      ctx.strokeStyle = 'rgba(210, 235, 255, 0.22)';
       ctx.lineWidth = 1.2;
       for (let i = 0; i < 4; i++) {
         const ringR = radius * (0.2 + i * 0.15);
@@ -124,7 +119,7 @@ export function ScrubBackgroundVideo() {
       }
     };
 
-    // Continuous 60fps render loop for smooth parallax and ambient canvas
+    // Continuous 60fps render loop for parallax tilt & canvas
     const renderLoop = (timestamp: number) => {
       if (isDestroyed) return;
 
@@ -150,7 +145,7 @@ export function ScrubBackgroundVideo() {
 
     rafId = window.requestAnimationFrame(renderLoop);
 
-    // Queue-based seek to prevent flood seeks
+    // Queue-based seek preventing seek-flooding
     const commitSeek = () => {
       if (!video || !Number.isFinite(video.duration) || video.duration <= 0) return;
       const desired = Math.min(video.duration, Math.max(0, targetTimeRef.current));
@@ -171,6 +166,7 @@ export function ScrubBackgroundVideo() {
     };
     video.addEventListener('seeked', handleSeeked);
 
+    // Horizontal scrub calculation on pointer move / touch drag
     const handlePointerDelta = (clientX: number, clientY: number) => {
       const vw = Math.max(1, window.innerWidth);
       const vh = Math.max(1, window.innerHeight);
@@ -227,7 +223,6 @@ export function ScrubBackgroundVideo() {
 
     const onTouchEnd = () => {
       prevXRef.current = null;
-      // Resume gentle playback on touch end so mobile background stays in motion
       startPlayback();
     };
 
@@ -270,12 +265,12 @@ export function ScrubBackgroundVideo() {
         aria-hidden="true"
         className="fixed inset-0 z-0 h-full w-full object-cover object-[70%_center] pointer-events-none scale-[1.08] will-change-transform"
       >
-        <source src={LOCAL_VIDEO_URL} type="video/mp4" />
-        <source src={REMOTE_VIDEO_URL} type="video/mp4" />
+        <source src="/video.webm" type="video/webm" />
+        <source src="/video.mp4" type="video/mp4" />
       </video>
       <div
         aria-hidden="true"
-        className="fixed inset-0 z-0 bg-gradient-to-r from-black/45 via-black/20 to-transparent pointer-events-none"
+        className="fixed inset-0 z-0 bg-gradient-to-r from-black/40 via-black/15 to-transparent pointer-events-none"
       />
     </>
   );
