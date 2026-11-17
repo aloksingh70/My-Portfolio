@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from 'react';
-import { calculateDirectionalFollow, calculateScrubTime } from '../utils/portfolioLogic';
+import { useEffect, useRef } from 'react';
+import { calculateDirectionalFollow, calculateScrubTime, SCRUB_SENSITIVITY } from '../utils/portfolioLogic';
 
-const VIDEO_URL =
+const LOCAL_VIDEO_URL = '/video.mp4';
+const REMOTE_VIDEO_URL =
   'https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260826_041744_63efcd78-bf7d-4039-99e2-2461e8a61903.mp4';
 
 export function ScrubBackgroundVideo() {
@@ -12,7 +13,6 @@ export function ScrubBackgroundVideo() {
   const isSeekingRef = useRef<boolean>(false);
   const targetPointerRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   const currentPointerRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
-  const [videoReady, setVideoReady] = useState(false);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -25,7 +25,7 @@ export function ScrubBackgroundVideo() {
       typeof window.matchMedia === 'function' &&
       window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-    // Ensure critical mobile video attributes are set on DOM element
+    // Set essential video properties directly on DOM element for mobile browser compatibility
     video.muted = true;
     video.defaultMuted = true;
     video.playsInline = true;
@@ -33,60 +33,43 @@ export function ScrubBackgroundVideo() {
     video.setAttribute('playsinline', '');
     video.setAttribute('webkit-playsinline', '');
 
-    // Attempt autoplay immediately
-    const startVideoPlayback = () => {
+    // Initiate immediate playback
+    const startPlayback = () => {
       const playPromise = video.play();
       if (playPromise !== undefined) {
-        playPromise
-          .then(() => {
-            if (!isDestroyed) {
-              setVideoReady(true);
-            }
-          })
-          .catch(() => {
-            // Autoplay may be restricted until user touch; fallback canvas handles animation
-          });
+        playPromise.catch(() => {
+          // Autoplay policy may pause until user touch; canvas provides animated fallback
+        });
       }
     };
-    startVideoPlayback();
+    startPlayback();
 
-    // User touch/click gesture unlock for strict mobile autoplay policies
-    const handleUserInteraction = () => {
+    // Unlock playback on first mobile touch or pointer tap
+    const unlockPlaybackOnGesture = () => {
       if (video.paused) {
-        startVideoPlayback();
+        startPlayback();
       }
-      window.removeEventListener('touchstart', handleUserInteraction);
-      window.removeEventListener('pointerdown', handleUserInteraction);
+      window.removeEventListener('touchstart', unlockPlaybackOnGesture);
+      window.removeEventListener('pointerdown', unlockPlaybackOnGesture);
     };
-    window.addEventListener('touchstart', handleUserInteraction, { passive: true });
-    window.addEventListener('pointerdown', handleUserInteraction, { passive: true });
+    window.addEventListener('touchstart', unlockPlaybackOnGesture, { passive: true });
+    window.addEventListener('pointerdown', unlockPlaybackOnGesture, { passive: true });
 
-    // Mark video ready as soon as frames are available
-    const markVideoReady = () => {
-      if (isDestroyed) return;
+    // Handle loop restart cleanly
+    const handleEnded = () => {
+      video.currentTime = 0;
+      startPlayback();
+    };
+    video.addEventListener('ended', handleEnded);
+
+    const handleLoadedMetadata = () => {
       if (Number.isFinite(video.duration) && video.duration > 0) {
         targetTimeRef.current = Math.min(video.duration, Math.max(0, video.currentTime));
       }
-      setVideoReady(true);
     };
+    video.addEventListener('loadedmetadata', handleLoadedMetadata);
 
-    if (video.readyState >= 2) {
-      markVideoReady();
-    }
-
-    video.addEventListener('loadeddata', markVideoReady);
-    video.addEventListener('canplay', markVideoReady);
-    video.addEventListener('playing', markVideoReady);
-    video.addEventListener('timeupdate', () => {
-      if (!isDestroyed && video.currentTime > 0) {
-        setVideoReady(true);
-      }
-    });
-    video.addEventListener('ended', () => {
-      video.currentTime = 0;
-      startVideoPlayback();
-    });
-
+    // Dynamic glowing canvas backdrop (renders smoothly whenever video is buffering or offline)
     const drawCanvasBackdrop = (timestamp: number) => {
       const canvas = canvasRef.current;
       if (!canvas) return;
@@ -100,40 +83,40 @@ export function ScrubBackgroundVideo() {
         canvas.height = height;
       }
 
-      // Continuous ambient breathing drift (essential for mobile when idle)
       const t = timestamp * 0.001;
-      const ambientX = prefersReducedMotion ? 0 : Math.sin(t * 0.5) * 0.06;
-      const ambientY = prefersReducedMotion ? 0 : Math.cos(t * 0.4) * 0.06;
+      const ambientX = prefersReducedMotion ? 0 : Math.sin(t * 0.5) * 0.08;
+      const ambientY = prefersReducedMotion ? 0 : Math.cos(t * 0.4) * 0.08;
 
       const nx = currentPointerRef.current.x + ambientX;
       const ny = currentPointerRef.current.y + ambientY;
 
-      ctx.fillStyle = '#050507';
+      // Dark futuristic atmosphere
+      ctx.fillStyle = '#05070a';
       ctx.fillRect(0, 0, width, height);
 
-      const cx = width * (0.7 + nx * 0.1);
-      const cy = height * (0.5 + ny * 0.12);
-      const radius = Math.max(width, height) * 0.55;
+      const cx = width * (0.68 + nx * 0.12);
+      const cy = height * (0.5 + ny * 0.14);
+      const radius = Math.max(width, height) * 0.6;
 
-      const grad = ctx.createRadialGradient(cx, cy, radius * 0.04, cx, cy, radius);
-      grad.addColorStop(0, 'rgba(215, 224, 240, 0.22)');
-      grad.addColorStop(0.32, 'rgba(110, 128, 160, 0.11)');
-      grad.addColorStop(0.68, 'rgba(32, 38, 52, 0.06)');
+      const grad = ctx.createRadialGradient(cx, cy, radius * 0.03, cx, cy, radius);
+      grad.addColorStop(0, 'rgba(180, 215, 255, 0.35)');
+      grad.addColorStop(0.28, 'rgba(95, 140, 220, 0.20)');
+      grad.addColorStop(0.62, 'rgba(30, 50, 95, 0.10)');
       grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
       ctx.fillStyle = grad;
       ctx.fillRect(0, 0, width, height);
 
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.07)';
-      ctx.lineWidth = 1;
+      ctx.strokeStyle = 'rgba(210, 235, 255, 0.18)';
+      ctx.lineWidth = 1.2;
       for (let i = 0; i < 4; i++) {
-        const ringR = radius * (0.22 + i * 0.14);
+        const ringR = radius * (0.2 + i * 0.15);
         ctx.beginPath();
         ctx.ellipse(
           cx,
           cy,
           ringR,
-          ringR * (0.52 + ny * 0.08),
-          nx * 0.3 + i * 0.18 + (prefersReducedMotion ? 0 : t * 0.08),
+          ringR * (0.5 + ny * 0.09),
+          nx * 0.3 + i * 0.2 + (prefersReducedMotion ? 0 : t * 0.07),
           0,
           Math.PI * 2
         );
@@ -141,14 +124,13 @@ export function ScrubBackgroundVideo() {
       }
     };
 
-    // Continuous animation loop ensuring uninterrupted movement on mobile and desktop
+    // Continuous 60fps render loop for smooth parallax and ambient canvas
     const renderLoop = (timestamp: number) => {
       if (isDestroyed) return;
 
       const cur = currentPointerRef.current;
       const tgt = targetPointerRef.current;
 
-      // Smooth spring interpolation
       cur.x += (tgt.x - cur.x) * 0.12;
       cur.y += (tgt.y - cur.y) * 0.12;
 
@@ -168,10 +150,11 @@ export function ScrubBackgroundVideo() {
 
     rafId = window.requestAnimationFrame(renderLoop);
 
+    // Queue-based seek to prevent flood seeks
     const commitSeek = () => {
       if (!video || !Number.isFinite(video.duration) || video.duration <= 0) return;
       const desired = Math.min(video.duration, Math.max(0, targetTimeRef.current));
-      if (Math.abs(video.currentTime - desired) < 0.01) {
+      if (Math.abs(video.currentTime - desired) < 0.02) {
         isSeekingRef.current = false;
         return;
       }
@@ -179,7 +162,16 @@ export function ScrubBackgroundVideo() {
       video.currentTime = desired;
     };
 
-    const handlePointerMove = (clientX: number, clientY: number, isTouch = false) => {
+    const handleSeeked = () => {
+      isSeekingRef.current = false;
+      if (!Number.isFinite(video.duration) || video.duration <= 0) return;
+      if (Math.abs(video.currentTime - targetTimeRef.current) >= 0.02) {
+        commitSeek();
+      }
+    };
+    video.addEventListener('seeked', handleSeeked);
+
+    const handlePointerDelta = (clientX: number, clientY: number) => {
       const vw = Math.max(1, window.innerWidth);
       const vh = Math.max(1, window.innerHeight);
 
@@ -191,12 +183,6 @@ export function ScrubBackgroundVideo() {
       });
       targetPointerRef.current = { x: follow.nx, y: follow.ny };
 
-      // On mobile touch devices, let the video play naturally without pausing or stuttering seek calls
-      if (isTouch) {
-        return;
-      }
-
-      // On desktop with mouse, support interactive timeline scrubbing
       if (prevXRef.current === null) {
         prevXRef.current = clientX;
         return;
@@ -212,6 +198,7 @@ export function ScrubBackgroundVideo() {
         deltaX,
         viewportWidth: vw,
         duration: video.duration,
+        sensitivity: SCRUB_SENSITIVITY,
       });
 
       if (!isSeekingRef.current) {
@@ -220,59 +207,49 @@ export function ScrubBackgroundVideo() {
     };
 
     const onMouseMove = (event: MouseEvent) => {
-      handlePointerMove(event.clientX, event.clientY, false);
+      handlePointerDelta(event.clientX, event.clientY);
     };
 
     const onTouchStart = (event: TouchEvent) => {
       const touch = event.touches[0];
       if (touch) {
         prevXRef.current = touch.clientX;
-        handlePointerMove(touch.clientX, touch.clientY, true);
+        handlePointerDelta(touch.clientX, touch.clientY);
       }
     };
 
     const onTouchMove = (event: TouchEvent) => {
       const touch = event.touches[0];
       if (touch) {
-        handlePointerMove(touch.clientX, touch.clientY, true);
+        handlePointerDelta(touch.clientX, touch.clientY);
       }
     };
 
-    const handleSeeked = () => {
-      isSeekingRef.current = false;
-      if (!Number.isFinite(video.duration) || video.duration <= 0) return;
-      if (Math.abs(video.currentTime - targetTimeRef.current) >= 0.02) {
-        commitSeek();
-      }
-    };
-
-    const handleError = () => {
-      if (!isDestroyed) {
-        setVideoReady(false);
-      }
+    const onTouchEnd = () => {
+      prevXRef.current = null;
+      // Resume gentle playback on touch end so mobile background stays in motion
+      startPlayback();
     };
 
     window.addEventListener('mousemove', onMouseMove, { passive: true });
     window.addEventListener('touchstart', onTouchStart, { passive: true });
     window.addEventListener('touchmove', onTouchMove, { passive: true });
-    video.addEventListener('seeked', handleSeeked);
-    video.addEventListener('error', handleError);
+    window.addEventListener('touchend', onTouchEnd, { passive: true });
 
     return () => {
       isDestroyed = true;
       if (rafId !== 0) {
         window.cancelAnimationFrame(rafId);
       }
-      window.removeEventListener('touchstart', handleUserInteraction);
-      window.removeEventListener('pointerdown', handleUserInteraction);
+      window.removeEventListener('touchstart', unlockPlaybackOnGesture);
+      window.removeEventListener('pointerdown', unlockPlaybackOnGesture);
       window.removeEventListener('mousemove', onMouseMove);
       window.removeEventListener('touchstart', onTouchStart);
       window.removeEventListener('touchmove', onTouchMove);
+      window.removeEventListener('touchend', onTouchEnd);
+      video.removeEventListener('ended', handleEnded);
+      video.removeEventListener('loadedmetadata', handleLoadedMetadata);
       video.removeEventListener('seeked', handleSeeked);
-      video.removeEventListener('loadeddata', markVideoReady);
-      video.removeEventListener('canplay', markVideoReady);
-      video.removeEventListener('playing', markVideoReady);
-      video.removeEventListener('error', handleError);
     };
   }, []);
 
@@ -281,26 +258,24 @@ export function ScrubBackgroundVideo() {
       <canvas
         ref={canvasRef}
         aria-hidden="true"
-        className={`fixed inset-0 z-0 h-full w-full pointer-events-none transition-opacity duration-700 ${
-          videoReady ? 'opacity-0' : 'opacity-100'
-        }`}
+        className="fixed inset-0 -z-10 h-full w-full pointer-events-none"
       />
       <video
         ref={videoRef}
-        src={VIDEO_URL}
         autoPlay
         loop
         muted
         playsInline
         preload="auto"
         aria-hidden="true"
-        className={`fixed inset-0 z-0 h-full w-full object-cover object-[70%_center] pointer-events-none transition-opacity duration-700 scale-[1.08] will-change-transform ${
-          videoReady ? 'opacity-100' : 'opacity-0'
-        }`}
-      />
+        className="fixed inset-0 z-0 h-full w-full object-cover object-[70%_center] pointer-events-none scale-[1.08] will-change-transform"
+      >
+        <source src={LOCAL_VIDEO_URL} type="video/mp4" />
+        <source src={REMOTE_VIDEO_URL} type="video/mp4" />
+      </video>
       <div
         aria-hidden="true"
-        className="fixed inset-0 z-0 bg-gradient-to-r from-black/65 via-black/35 to-black/20 pointer-events-none"
+        className="fixed inset-0 z-0 bg-gradient-to-r from-black/45 via-black/20 to-transparent pointer-events-none"
       />
     </>
   );
