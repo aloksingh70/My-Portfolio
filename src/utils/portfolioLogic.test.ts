@@ -4,7 +4,10 @@ import {
   buildMailtoHref,
   buildSectionHash,
   buildShareableSectionUrl,
+  calculateAmbientGaze,
   calculateDirectionalFollow,
+  calculateDirectGazeProgress,
+  calculateOrientationFollow,
   calculateScrubTime,
   filterCertificates,
   getCarouselScrollDelta,
@@ -52,6 +55,56 @@ test('calculateScrubTime handles invalid duration or viewport width safely', () 
     calculateScrubTime({ currentTarget: 2, deltaX: 100, viewportWidth: 1200, duration: Number.NaN }),
     0
   );
+});
+
+test('calculateDirectGazeProgress maps pointer coordinate across duration and clamps safely', () => {
+  assert.equal(
+    calculateDirectGazeProgress({ clientX: 0, viewportWidth: 1000, duration: 4.0 }),
+    0
+  );
+  assert.equal(
+    calculateDirectGazeProgress({ clientX: 500, viewportWidth: 1000, duration: 4.0 }),
+    2.0
+  );
+  assert.equal(
+    calculateDirectGazeProgress({ clientX: 1000, viewportWidth: 1000, duration: 4.0 }),
+    4.0
+  );
+  assert.equal(
+    calculateDirectGazeProgress({ clientX: 1500, viewportWidth: 1000, duration: 4.0 }),
+    4.0
+  );
+  assert.equal(
+    calculateDirectGazeProgress({ clientX: 500, viewportWidth: 0, duration: 4.0 }),
+    0
+  );
+});
+
+test('calculateAmbientGaze keeps gaze gently oscillating near base progress', () => {
+  const g1 = calculateAmbientGaze({ baseProgress: 0.5, elapsedSeconds: 0, amplitude: 0.1 });
+  assert.equal(g1, 0.5);
+
+  const g2 = calculateAmbientGaze({
+    baseProgress: 0.5,
+    elapsedSeconds: Math.PI / 1.6, // sin(pi/2) = 1 with frequency 0.8
+    amplitude: 0.1,
+    frequency: 0.8,
+  });
+  assert.ok(Math.abs(g2 - 0.6) < 0.01);
+});
+
+test('calculateOrientationFollow maps device tilt safely', () => {
+  const neutral = calculateOrientationFollow({ gamma: 0, beta: 45 });
+  assert.equal(neutral.nx, 0);
+  assert.equal(neutral.ny, 0);
+  assert.equal(neutral.gazeProgressRatio, 0.5);
+
+  const tiltedRight = calculateOrientationFollow({ gamma: 35, beta: 45 });
+  assert.equal(tiltedRight.nx, 1);
+  assert.equal(tiltedRight.gazeProgressRatio, 1);
+
+  const nullData = calculateOrientationFollow({ gamma: null, beta: null });
+  assert.equal(nullData.gazeProgressRatio, 0.5);
 });
 
 test('getTypewriterSlice returns exact substring and done state', () => {

@@ -38,6 +38,46 @@ export const NAV_SECTIONS: { key: PortfolioSection; label: string }[] = [
 
 export const SCRUB_SENSITIVITY = 0.8;
 
+export function calculateDirectGazeProgress(params: {
+  clientX: number;
+  viewportWidth: number;
+  duration: number;
+}): number {
+  const { clientX, viewportWidth, duration } = params;
+  if (!Number.isFinite(duration) || duration <= 0 || !Number.isFinite(viewportWidth) || viewportWidth <= 0) {
+    return 0;
+  }
+  const ratio = Math.min(1, Math.max(0, clientX / viewportWidth));
+  return ratio * duration;
+}
+
+export function calculateAmbientGaze(params: {
+  baseProgress: number;
+  elapsedSeconds: number;
+  amplitude?: number;
+  frequency?: number;
+}): number {
+  const { baseProgress, elapsedSeconds, amplitude = 0.06, frequency = 0.8 } = params;
+  const safeBase = Math.min(1, Math.max(0, Number.isFinite(baseProgress) ? baseProgress : 0.5));
+  const wave = Math.sin(elapsedSeconds * frequency) * amplitude;
+  return Math.min(0.95, Math.max(0.05, safeBase + wave));
+}
+
+export function calculateOrientationFollow(params: {
+  gamma: number | null;
+  beta: number | null;
+  maxAngle?: number;
+}): { nx: number; ny: number; gazeProgressRatio: number } {
+  const { gamma, beta, maxAngle = 35 } = params;
+  if (gamma === null || beta === null || !Number.isFinite(gamma) || !Number.isFinite(beta)) {
+    return { nx: 0, ny: 0, gazeProgressRatio: 0.5 };
+  }
+  const nx = Math.min(1, Math.max(-1, gamma / maxAngle));
+  const ny = Math.min(1, Math.max(-1, (beta - 45) / maxAngle));
+  const gazeProgressRatio = Math.min(1, Math.max(0, (nx + 1) / 2));
+  return { nx, ny, gazeProgressRatio };
+}
+
 export function calculateScrubTime(params: {
   currentTarget: number;
   deltaX: number;
